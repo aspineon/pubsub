@@ -63,11 +63,16 @@ if (!Array.prototype.filter) {
 
     var subscriptions = {};
     var pubsub = {};
-    var lastToken = 0;
+    var lastToken = 0; // For internal use, incremented for every subscription and returned from subscribe method
 
+    // Subscribe the callback function to the message
     pubsub.subscribe = function (message, callback) {
         if (typeof message !== "string") {
             throw new Error("Provide a valid message to subscribe to.");
+        }
+
+        if (typeof callback !== "callback") {
+            throw new Error("Provide a valid callback to subscribe to the message");
         }
 
         var token = lastToken + 1;
@@ -82,15 +87,13 @@ if (!Array.prototype.filter) {
         return token;
     };
 
+    // Unsubscribe callback passed by reference or identified by token from the message
     pubsub.unsubscribe = function (message, callbackOrToken) {
         if (typeof message !== "string") {
             throw new Error("Provide a valid message to unsubscribe.");
         }
 
-        if (!subscriptions.hasOwnProperty(message)) {
-            return;
-        }
-
+        // Determine whether token or reference to the function has been passed as the argument
         var hasCallback = false;
         var hasToken = false;
         if (typeof callbackOrToken === "function") {
@@ -101,6 +104,12 @@ if (!Array.prototype.filter) {
             throw new Error("Provide a valid callback or token of a subscription to unsubscribe.");
         }
 
+        // Do nothing, if no callbacks has been subscribed to the message yet
+        if (!subscriptions.hasOwnProperty(message)) {
+            return;
+        }
+
+        // Remove references to the function from subscriptions[message]
         subscriptions[message] = subscriptions[message].filter(function (subscription) {
             if (hasCallback) {
                 return subscription.callback !== callbackOrToken;
@@ -110,15 +119,18 @@ if (!Array.prototype.filter) {
         });
     };
 
+    // Publish message, passing data as an argument
     pubsub.publish = function (message, data) {
         if (typeof message !== "string") {
             throw new Error("Provide a valid topic name to publish.");
         }
 
-        if (!subscriptions[message]) {
+        // Do nothing, when a message with no subscriptions is published
+        if (!subscriptions.hasOwnProperty(message)) {
             return;
         }
 
+        // Fire all callbacks subscribed to the message
         subscriptions[message].forEach(function (subscription) {
             subscription.callback(data);
         });
