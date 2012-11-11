@@ -63,27 +63,50 @@ if (!Array.prototype.filter) {
 
     var subscriptions = {};
     var pubsub = {};
+    var lastToken = 0;
 
     pubsub.subscribe = function (message, callback) {
         if (typeof message !== "string") {
             throw new Error("Provide a valid message to subscribe to.");
         }
 
+        var token = lastToken + 1;
+        lastToken = token;
+
         subscriptions[message] = subscriptions[message] || [];
-        subscriptions[message].push(callback);
+        subscriptions[message].push({
+            token: token,
+            callback: callback
+        });
+
+        return token;
     };
 
-    pubsub.unsubscribe = function (message, callback) {
+    pubsub.unsubscribe = function (message, callbackOrToken) {
         if (typeof message !== "string") {
             throw new Error("Provide a valid message to unsubscribe.");
         }
 
-        if (!subscriptions[message]) {
+        if (!subscriptions.hasOwnProperty(message)) {
             return;
         }
 
+        var hasCallback = false;
+        var hasToken = false;
+        if (typeof callbackOrToken === "function") {
+            hasCallback = true;
+        } else if (typeof callbackOrToken === "number") {
+            hasToken = true;
+        } else {
+            throw new Error("Provide a valid callback or token of a subscription to unsubscribe.");
+        }
+
         subscriptions[message] = subscriptions[message].filter(function (subscription) {
-            return subscription !== callback;
+            if (hasCallback) {
+                return subscription.callback !== callbackOrToken;
+            } else if (hasToken) {
+                return subscription.token !== callbackOrToken;
+            }
         });
     };
 
@@ -96,8 +119,8 @@ if (!Array.prototype.filter) {
             return;
         }
 
-        subscriptions[message].forEach(function (callback) {
-            callback(data);
+        subscriptions[message].forEach(function (subscription) {
+            subscription.callback(data);
         });
     };
 
